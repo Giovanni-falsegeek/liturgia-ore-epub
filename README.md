@@ -1,3 +1,16 @@
+# Presentazione semplice
+
+Questo "programma" serve per creare un file ePub della liturgia delle ore partendo dai testi CEI disponibili sul sito https://www.chiesacattolica.it/la-liturgia-delle-ore.
+
+L'idea è di poter disporre di un file unico mensile per e-Reader senza dove avere connessione a internet.
+
+Per utilizzare il programma:
+- è necessario usare un computer desktop e aver installato Python 3
+- basta scaricare il file: liturgia_epub.py e metterlo in una cartella
+- dalla cartella si lancia il terminale e si dà il comando: py liturgia_epub.py aaaa-mm (sostituire "py" con "python3" su Mac e Linux; aaaa per l'anno, mm per il mese, ad es. 2026-12 per dicembre 2026).
+
+Programma sviluppato con Claude free e Chatgpt plus.
+
 # Liturgia delle Ore → ePub
 
 Programma Python per creare un ePub mensile dai testi disponibili sul sito CEI.

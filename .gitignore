@@ -1,0 +1,21 @@
+# Contenuti scaricati e generati: mai nel repository
+cache*/
+esempio/
+sources/
+*.epub
+*.html
+*.xhtml
+*-riepilogo.txt
+*.zip
+# File locali e credenziali
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

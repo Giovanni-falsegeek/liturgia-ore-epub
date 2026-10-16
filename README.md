@@ -180,3 +180,10 @@ sera in cui si pregano, con un sottotitolo che indica la celebrazione della vigi
 Questo puo' richiedere pagine del giorno successivo anche alla fine del periodo.
 Le vecchie pagine generiche della cache non vengono usate al posto delle ore festive.
 ```
+
+
+## Ringraziamenti
+
+Il progetto è stato sviluppato con il supporto di **Claude (Anthropic)** e **ChatGPT (OpenAI)** per la scrittura del codice, la risoluzione dei problemi, i test e la documentazione.
+
+Le scelte progettuali e la revisione finale restano a cura del responsabile del progetto.

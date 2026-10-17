@@ -25,7 +25,7 @@ Il download del programma non include testi liturgici, cache o ePub.
 
 ## Scarica il programma
 
-**[Scarica Liturgia-ePub-v1.0.0.zip](https://github.com/Giovanni-falsegeek/liturgia-ore-epub/releases/download/v1.0.0/Liturgia-ePub-v1.0.0.zip)**
+**[Scarica Liturgia-ePub-v1.0.1.zip](https://github.com/Giovanni-falsegeek/liturgia-ore-epub/releases/download/v1.0.1/Liturgia-ePub-v1.0.1.zip)**
 
 L’archivio contiene soltanto programma, queste istruzioni e licenza.
 Estrai tutti i file in una cartella. Non occorre un account GitHub per scaricarli.

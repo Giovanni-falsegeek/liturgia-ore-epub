@@ -159,9 +159,14 @@ SKIP = {"script", "style", "noscript", "svg", "template", "head"}
 class Paragrafi(HTMLParser):
     """Trasforma l'HTML in paragrafi, ciascuno fatto di righe (i <br> vanno a capo)."""
 
+    VOID = {"area", "base", "col", "embed", "hr", "img", "input", "link", "meta",
+            "param", "source", "track", "wbr"}
+
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.paras, self.lines, self.cur, self.skip = [], [], "", 0
+        self.classi = set()
+        self.stack = []
 
     def _riga(self):
         t = re.sub(r"\s+", " ", self.cur).strip()
@@ -172,7 +177,7 @@ class Paragrafi(HTMLParser):
     def chiudi_paragrafo(self):
         self._riga()
         if self.lines:
-            self.paras.append(self.lines)
+            self.paras.append(Paragrafo(self.lines, self.classi))
             self.lines = []
 
     def handle_starttag(self, tag, attrs):
@@ -184,6 +189,13 @@ class Paragrafi(HTMLParser):
             self._riga()
         elif tag in BLOCK:
             self.chiudi_paragrafo()
+            classi = set(dict(attrs).get("class", "").split())
+            self.stack.append((tag, classi))
+            self.classi.update(classi)
+        elif tag not in self.VOID:
+            classi = set(dict(attrs).get("class", "").split())
+            self.stack.append((tag, classi))
+            self.classi.update(classi)
 
     def handle_endtag(self, tag):
         if tag in SKIP:
@@ -192,10 +204,28 @@ class Paragrafi(HTMLParser):
             return
         elif tag in BLOCK:
             self.chiudi_paragrafo()
+            self._chiudi_stack(tag)
+        else:
+            self._chiudi_stack(tag)
+
+    def _chiudi_stack(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                break
+        self.classi = set().union(*(c for _, c in self.stack)) if self.stack else set()
 
     def handle_data(self, data):
         if not self.skip:
             self.cur += data
+
+
+class Paragrafo(list):
+    """Righe del paragrafo con le classi CEI da cui proviene."""
+
+    def __init__(self, righe=(), classi=()):
+        super().__init__(righe)
+        self.classi = set(classi)
 
 
 LABEL = re.compile(r"^(V\.|R\.|℣\.|℟\.|Ant\.(?: ?\d+)?)$")
@@ -213,7 +243,8 @@ def dividi_sottotitoli(paras):
     out = []
     for p in paras:
         if len(p) > 1 and SOTTO_ORA.match(p[0]):
-            out += [[p[0]], p[1:]]
+            out += [Paragrafo([p[0]], getattr(p, "classi", ())),
+                    Paragrafo(p[1:], getattr(p, "classi", ()))]
         else:
             out.append(p)
     return out
@@ -241,12 +272,12 @@ def unisci_etichette(paras):
             else:
                 out.append(p[i])
                 i += 1
-        interni.append(out)
+        interni.append(Paragrafo(out, getattr(p, "classi", ())))
     finale, i = [], 0
     while i < len(interni):
         p = interni[i]
         if len(p) == 1 and LABEL.match(p[0]) and i + 1 < len(interni):
-            nxt = list(interni[i + 1])
+            nxt = Paragrafo(interni[i + 1], getattr(interni[i + 1], "classi", ()))
             nxt[0] = p[0] + " " + nxt[0]
             finale.append(nxt)
             i += 2
@@ -254,6 +285,53 @@ def unisci_etichette(paras):
             finale.append(p)
             i += 1
     return finale
+
+
+def unisci_trattini_intercessioni(paras):
+    """Unisce le risposte e ripete in chiusura la risposta iniziale delle intercessioni."""
+    out, intercessioni, risposta, i = [], False, None, 0
+
+    def aggiungi_risposta_finale():
+        if risposta:
+            finale = Paragrafo(risposta, getattr(risposta, "classi", ()))
+            finale.classi.add("risposta_finale")
+            out.append(finale)
+
+    while i < len(paras):
+        p = paras[i]
+        testo = " ".join(p).strip()
+        if p and ("lo_titolo" in getattr(p, "classi", ()) or len(p) == 1) and TITOLO.match(p[0]):
+            if p[0].upper().startswith("INTERCESSIONI"):
+                intercessioni = True
+                risposta = None
+            else:
+                if intercessioni:
+                    aggiungi_risposta_finale()
+                intercessioni = False
+                risposta = None
+        if intercessioni and re.match(r"^padre nostro\b", testo, re.I):
+            aggiungi_risposta_finale()
+            intercessioni = False
+            risposta = None
+        if (intercessioni and risposta is None and testo
+                and {"lo_sottotitolo", "lo_sottotitolonoi"} & getattr(p, "classi", set())):
+            risposta = Paragrafo(p, getattr(p, "classi", ()))
+            risposta.classi.add("risposta_iniziale")
+            out.append(risposta)
+            i += 1
+            continue
+        if (intercessioni and testo in {"—", "–", "-"}
+                and i + 1 < len(paras) and paras[i + 1]):
+            prossima = Paragrafo(paras[i + 1], getattr(paras[i + 1], "classi", ()))
+            prossima[0] = testo + " " + prossima[0].lstrip()
+            out.append(prossima)
+            i += 2
+        else:
+            out.append(p)
+            i += 1
+    if intercessioni:
+        aggiungi_risposta_finale()
+    return out
 
 
 def estrai(testo_html, d, nome_ora):
@@ -285,7 +363,7 @@ def estrai(testo_html, d, nome_ora):
     sotto = righe[gi - 1] if gi > 0 else ""
     if sotto.lower() == nome_ora.lower():
         sotto = ""
-    return sotto, unisci_etichette(corpo)
+    return sotto, unisci_trattini_intercessioni(unisci_etichette(corpo))
 
 
 def scarica(d, slug, cache, pausa, memoria=0):
@@ -384,6 +462,9 @@ h1{font-size:1.5em;margin:.6em 0 .1em}
 h2{font-size:1.1em;font-weight:normal;margin:0 0 .2em}
 h3{font-size:1em;margin:1.3em 0 .3em}
 p{margin:0 0 .9em;text-align:left}
+.sentenza{font-size:.9em;font-style:italic}
+p.risposta-iniziale{font-size:.85em}
+p.risposta-finale{font-size:.9em;font-style:italic;margin-top:.8em}
 h2.sub{font-size:1.25em;font-weight:bold;margin:1.8em 0 .5em;padding-top:.5em;border-top:1px solid #999}
 .sott{font-size:.85em;margin-bottom:1.2em;font-variant:small-caps}
 .rubr{color:#a00;font-style:italic}
@@ -396,6 +477,9 @@ h2.sub{font-size:1.25em;font-weight:bold;margin:1.8em 0 .5em;padding-top:.5em;bo
 
 
 def riga_html(testo):
+    m = re.match(r"^(—|–|-)(\s+)(.*)$", testo)
+    if m:
+        return f'<span class="rubr">{m.group(1)}</span> {esc(m.group(3))}'
     m = LABEL_INIZIO.match(testo)
     if m:
         return f'<span class="rubr">{esc(m.group(1))}</span> {esc(m.group(2))}'
@@ -404,15 +488,30 @@ def riga_html(testo):
 
 def corpo_html(paras):
     out = []
+    sentenza_salmo = False
     for p in paras:
         m = SOTTO_ORA.match(p[0]) if len(p) == 1 else None
-        if m:
+        if "risposta_finale" in getattr(p, "classi", ()):
+            contenuto = "<br/>".join(riga_html(r) for r in p)
+            out.append(f'<p class="risposta-finale"><em>{contenuto}</em></p>')
+        elif "risposta_iniziale" in getattr(p, "classi", ()):
+            out.append('<p class="risposta-iniziale">' +
+                       "<br/>".join(riga_html(r) for r in p) + "</p>")
+        elif m:
             ora = m.group(1).lower()
             out.append(f'<h2 class="sub" id="ora-{ora}">Ora {ora}</h2>')
-        elif len(p) == 1 and (TITOLO.match(p[0]) or (p[0].isupper() and len(p[0]) > 3)):
-            out.append(f"<h3>{esc(p[0])}</h3>")
+        elif (("lo_titolo" in getattr(p, "classi", ()) and TITOLO.match(p[0]))
+              or (len(p) == 1 and (TITOLO.match(p[0]) or (p[0].isupper() and len(p[0]) > 3)))):
+            titolo = "<br/>".join(esc(r) for r in p)
+            out.append(f"<h3>{titolo}</h3>")
+            sentenza_salmo = bool(re.match(r"^(SALMO|CANTICO)\b", p[0], re.I))
+        elif sentenza_salmo and "lo_sottotitolo" in getattr(p, "classi", ()):
+            contenuto = "<br/>".join(riga_html(r) for r in p)
+            out.append(f'<p class="sentenza"><em>{contenuto}</em></p>')
+            sentenza_salmo = False
         else:
             out.append("<p>" + "<br/>".join(riga_html(r) for r in p) + "</p>")
+            sentenza_salmo = False
     return "\n".join(out)
 
 

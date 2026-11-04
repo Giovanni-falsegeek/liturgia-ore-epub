@@ -34,7 +34,12 @@ def cei(d, slug, memoria=0, festivo=False):
 
 
 def profesores(percorso, cache, pausa):
-    if percorso.endswith('.json'):
+    if percorso == 'cal.json':
+        testo = json.dumps({D.isoformat(): {'items': [
+            {'i': 'Intenzione comunitaria di prova'},
+            {'k': 'cumple', 't': 'Compleanno di prova'},
+            {'k': 'altro', 't': 'Evento da escludere'}]}})
+    elif percorso.endswith('.json'):
         meta = {'t': 'Calendario proprio Profesores', 'n': 'def'}
         testo = json.dumps({D.isoformat(): meta})
     elif percorso.startswith('inv/'):
@@ -43,6 +48,7 @@ def profesores(percorso, cache, pausa):
         testo = ('<div class="intro"><p>Introduzione da omettere</p></div>'
                  '<div class="lo_titolo">INNO</div><p>Testo fonte P</p>'
                  '<div hidden><span>Nascosto</span><br/>Nascosto</div>'
+                 '<div class="lo_resp" hidden>Risposta comunitaria</div><!--INT-->'
                  '<div class="lo_titolo">ORAZIONE</div><p>Preghiera fonte P</p>')
     return testo, Path(percorso)
 
@@ -67,6 +73,13 @@ class FontiTest(unittest.TestCase):
                 self.assertLess(testo.index('Invitatorio fonte P'), testo.index('Testo fonte P'))
                 self.assertNotIn('Introduzione da omettere', testo)
                 self.assertNotIn('Nascosto', testo)
+                for i in (0, 3):
+                    testo_ora = ' '.join(' '.join(p) for p in g['ore'][i][3])
+                    self.assertIn('Intenzione comunitaria di prova', testo_ora)
+                    self.assertIn('Compleanno di prova', testo_ora)
+                    self.assertIn('— Risposta comunitaria', testo_ora)
+                    self.assertNotIn('Evento da escludere', testo_ora)
+                    self.assertLess(testo_ora.index('Intenzione comunitaria'), testo_ora.index('ORAZIONE'))
             out = Path(tmp) / 'prova.epub'
             l.costruisci(giorni, 2026, 11, out)
             with zipfile.ZipFile(out) as z:
@@ -139,6 +152,24 @@ class FontiTest(unittest.TestCase):
                 testo, percorso = l.scarica_profesores('inv/20261103.html', cache, 0)
             self.assertEqual(percorso, f)
             self.assertEqual(testo, 'Testo Profesores in cache')
+
+    def test_intenzioni_escape_risposta_e_ordine(self):
+        dati = {D.isoformat(): {'items': [{'i': 'Per A & B <famiglia>'},
+                {'k': 'aniv', 't': 'Anniversario'}, {'k': 'dif', 't': 'Defunti'}]}}
+        with patch.object(l, 'scarica_profesores', return_value=(json.dumps(dati), Path('cal.json'))):
+            raw = l.inserisci_intenzioni('<div hidden="" class="lo_resp">Risposta &amp; pace</div><!--INT--><p>Padre nostro.</p>', D, Path('.'), 0)
+        self.assertIn('Per A &amp; B &lt;famiglia&gt;', raw)
+        self.assertLess(raw.index('Anniversario'), raw.index('Defunti'))
+        self.assertIn('— Risposta &amp; pace', raw)
+        self.assertNotIn('<!--INT-->', raw)
+
+    def test_senza_segnaposto_non_scarica_calendario(self):
+        with patch.object(l, 'scarica_profesores', side_effect=AssertionError('Download superfluo')):
+            self.assertEqual(l.inserisci_intenzioni('<p>Testo</p>', D, Path('.'), 0), '<p>Testo</p>')
+
+    def test_calendario_non_valido_segnala_errore(self):
+        with patch.object(l, 'scarica_profesores', return_value=('{} errore', Path('cal.json'))), self.assertRaisesRegex(ValueError, 'cal.json'):
+            l.inserisci_intenzioni('<!--INT-->', D, Path('.'), 0)
 
 
 if __name__ == '__main__':

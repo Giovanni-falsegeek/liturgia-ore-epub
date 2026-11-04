@@ -106,10 +106,15 @@ i Vespri seguono sempre la data e il titolo indicati da Profesores.
 I percorsi Profesores sono ricavati dagli indici `lit.json` e `vesp.json`:
 `lodi/AAAAMMGG-N.html`, `inv/AAAAMMGG.html` (oppure `-def.html` per i defunti)
 e `vesp/AAAAMMGG.html`. Sono riconosciute anche le varianti `sms` del sabato.
+Dove la fonte prevede le intenzioni della comunità (`<!--INT-->`), il programma
+le inserisce da `cal.json`, con la risposta dell’assemblea, come nell’app KOReader.
+Include le intenzioni esplicite e le ricorrenze di compleanni, anniversari e defunti.
+Le intenzioni compaiono nel punto previsto dalla fonte, prima del Padre nostro.
+
 La cache Profesores si trova in `cache_liturgia/profesores/`, separata da quella CEI.
 Se la data manca dagli indici o il testo non è disponibile, il programma si ferma:
 non sostituisce le ore mancanti con la CEI. Per aggiornare gli indici, rimuovi
-`lit.json` e `vesp.json` dalla tua cache Profesores e rilancia il programma.
+`lit.json`, `vesp.json` e `cal.json` dalla tua cache Profesores e rilancia il programma.
 Per aggiornare un testo già scaricato, rimuovi soltanto il suo file dalla cache.
 
 ## Se qualcosa non funziona

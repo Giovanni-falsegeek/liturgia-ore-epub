@@ -466,6 +466,37 @@ def estrai_profesores(testo, tipo):
     return unisci_trattini_intercessioni(unisci_etichette(p.paras))
 
 
+def inserisci_intenzioni(testo, d, cache, pausa):
+    """Espande il segnaposto della fonte come nell'app KOReader."""
+    if "<!--INT-->" not in testo:
+        return testo
+    calendario, f = scarica_profesores("cal.json", cache, pausa)
+    try:
+        dati = json.loads(calendario)
+        giorno = dati.get(d.isoformat(), {})
+        items = giorno.get("items", [])
+        if not isinstance(items, list) or not all(isinstance(x, dict) for x in items):
+            raise ValueError("elenco delle intenzioni non riconosciuto")
+        intenzioni = ([x['i'] for x in items if x.get('i')]
+                     + [x['t'] for x in items if x.get('k') in ('cumple', 'aniv', 'dif') and x.get('t')])
+        if not all(isinstance(x, str) for x in intenzioni):
+            raise ValueError("testo delle intenzioni non riconosciuto")
+    except (ValueError, AttributeError, TypeError) as e:
+        raise ValueError(f"{f}: calendario delle intenzioni non valido: {e}") from e
+    risposta = re.search(r'<div\b(?=[^>]*\bclass=["\x27]lo_resp["\x27])(?=[^>]*\bhidden\b)[^>]*>(.*?)</div>', testo, re.S | re.I)
+    box = '<div class="lo_titolo">INTENZIONI DELLA COMUNITÀ</div>'
+    box += ''.join(f'<p>{esc(x)}</p>' for x in intenzioni)
+    if risposta:
+        p = Paragrafi()
+        p.feed(risposta.group(1))
+        p.close()
+        p.chiudi_paragrafo()
+        righe = [r for par in p.paras for r in par]
+        if righe:
+            box += '<p>— ' + '<br/>'.join(esc(r) for r in righe) + '</p>'
+    return testo.replace('<!--INT-->', box)
+
+
 def raccogli_profesores(d, cache, pausa):
     risultati = {}
     for indice, tipo in (("lit", "lodi"), ("vesp", "vesp")):
@@ -488,6 +519,8 @@ def raccogli_profesores(d, cache, pausa):
             for parte, percorso in percorsi:
                 raw, pagina_f = scarica_profesores(percorso, cache, pausa)
                 try:
+                    if parte in ("lodi", "vesp"):
+                        raw = inserisci_intenzioni(raw, d, cache, pausa)
                     estratti = estrai_profesores(raw, parte)
                 except ValueError as e:
                     raise ValueError(f"{pagina_f}: {e}") from e

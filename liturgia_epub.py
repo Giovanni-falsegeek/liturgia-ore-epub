@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Liturgia delle Ore (testi CEI, chiesacattolica.it) -> ePub di un mese.
+"""Liturgia delle Ore (Profesores e CEI) -> ePub di un mese.
 
 Uso:
     python3 liturgia_epub.py 2026-11              # tutto novembre 2026
@@ -13,6 +13,7 @@ una cartella di cache, quindi se si interrompe basta rilanciare: riparte da dove
 import argparse
 import calendar
 import html
+import json
 import re
 import sys
 import time
@@ -26,10 +27,10 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 BASE = "https://www.chiesacattolica.it/la-liturgia-delle-ore/"
+PROFESORES = "https://profesores.pages.dev/data/"
 ORE = [
-    ("invitatorio", "Invitatorio"),
+    ("lodi-mattutine", "Invitatorio e Lodi mattutine"),
     ("ufficio-delle-letture", "Ufficio delle letture"),
-    ("lodi-mattutine", "Lodi mattutine"),
     ("ora-media", "Ora media"),
     ("vespri", "Vespri"),
     ("compieta", "Compieta"),
@@ -393,21 +394,128 @@ def scarica(d, slug, cache, pausa, memoria=0):
     raise RuntimeError(f"download fallito per {url}: {ultimo}")
 
 
+def scarica_profesores(percorso, cache, pausa):
+    """Cache distinta dalla CEI; gli URL sono costruiti soltanto dal programma."""
+    f = cache / "profesores" / percorso
+    if f.exists():
+        return f.read_text("utf-8"), f
+    url = PROFESORES + percorso
+    ultimo = None
+    for tentativo in range(4):
+        try:
+            req = Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (uso personale, lettura offline)",
+                "Accept-Language": "it-IT,it;q=0.9",
+            })
+            with urlopen(req, timeout=30) as r:
+                testo = r.read().decode("utf-8-sig")
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(testo, "utf-8")
+            time.sleep(pausa)
+            return testo, f
+        except (HTTPError, URLError, TimeoutError, UnicodeError) as e:
+            ultimo = e
+            if tentativo < 3:
+                time.sleep(2 ** (tentativo + 1))
+    raise RuntimeError(f"download fallito per {url}: {ultimo}")
+
+
+class ParagrafiProfesores(Paragrafi):
+    """Omette elementi nascosti e l'introduzione delle Lodi dopo l'Invitatorio."""
+
+    def __init__(self, ometti_intro=False):
+        super().__init__()
+        self.ometti_intro = ometti_intro
+        self.esclusi = 0
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if (self.esclusi or "hidden" in a
+                or (self.ometti_intro and "intro" in a.get("class", "").split())):
+            if tag not in Memorie.VOID:
+                self.esclusi += 1
+            return
+        super().handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag):
+        if self.esclusi:
+            if tag not in Memorie.VOID:
+                self.esclusi -= 1
+            return
+        super().handle_endtag(tag)
+
+    def handle_data(self, data):
+        if not self.esclusi:
+            super().handle_data(data)
+
+
+def estrai_profesores(testo, tipo):
+    if re.search(r'\bid\s*=\s*[\"\x27]ttl[\"\x27]', testo, re.I):
+        raise ValueError("ricevuta la pagina principale anziché il testo liturgico")
+    p = ParagrafiProfesores(ometti_intro=tipo == "lodi")
+    p.feed(testo)
+    p.close()
+    p.chiudi_paragrafo()
+    righe = [r for par in p.paras for r in par]
+    if tipo == "inv":
+        valido = any(r.startswith("SALMO") for r in righe)
+    else:
+        valido = "INNO" in righe and "ORAZIONE" in righe
+    if not valido:
+        raise ValueError(f"testo Profesores {tipo} assente o non riconosciuto")
+    return unisci_trattini_intercessioni(unisci_etichette(p.paras))
+
+
+def raccogli_profesores(d, cache, pausa):
+    risultati = {}
+    for indice, tipo in (("lit", "lodi"), ("vesp", "vesp")):
+        testo, f = scarica_profesores(indice + ".json", cache, pausa)
+        try:
+            dati = json.loads(testo)
+            meta = dati.get(d.isoformat()) if isinstance(dati, dict) else None
+            if not isinstance(meta, dict) or not isinstance(meta.get("t"), str) or not meta["t"].strip():
+                raise ValueError(f"data {d.isoformat()} assente o priva di titolo")
+            if tipo == "lodi":
+                n = meta.get("n", 0)
+                if not ((type(n) is int and n >= 0)
+                        or (isinstance(n, str) and re.fullmatch(r"[0-9]+|def|sms", n))):
+                    raise ValueError("variante delle Lodi non riconosciuta")
+                percorsi = [("inv", f"inv/{d:%Y%m%d}" + ("-def" if n == "def" else "") + ".html"),
+                            ("lodi", f"lodi/{d:%Y%m%d}-{n}.html")]
+            else:
+                percorsi = [("vesp", f"vesp/{d:%Y%m%d}.html")]
+            paras = []
+            for parte, percorso in percorsi:
+                raw, pagina_f = scarica_profesores(percorso, cache, pausa)
+                try:
+                    estratti = estrai_profesores(raw, parte)
+                except ValueError as e:
+                    raise ValueError(f"{pagina_f}: {e}") from e
+                if parte == "lodi":
+                    paras.append(Paragrafo(["Lodi mattutine"], ["lo_titolo"]))
+                paras.extend(estratti)
+            risultati[tipo] = (f"Profesores · {meta['t']}", paras)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"{f}: {e}. Controllare la fonte o aggiornare la cache Profesores.") from e
+    return risultati
+
+
 def raccogli_giorno(d, cache, pausa):
-    """Ogni versione ha tutte le sue ore scaricate e validate separatamente."""
-    testo, f = scarica(d, "lodi-mattutine", cache, pausa)
+    """Mantiene indipendenti il calendario Profesores e le alternative CEI."""
+    profesores = raccogli_profesores(d, cache, pausa)
+    testo, f = scarica(d, "ufficio-delle-letture", cache, pausa)
     try:
-        _, versioni = leggi_memorie(testo, d, "lodi-mattutine")
+        _, versioni = leggi_memorie(testo, d, "ufficio-delle-letture")
     except ValueError as e:
         raise ValueError(f"{f}: {e}") from e
     giorni = []
     for memoria, titolo in versioni:
-        # Le Lodi espongono il menu delle ore della celebrazione selezionata.
-        testo, f = scarica(d, "lodi-mattutine", cache, pausa, memoria)
+        # Il menu CEI serve soltanto per le ore provenienti dalla CEI.
+        testo, f = scarica(d, "ufficio-delle-letture", cache, pausa, memoria)
         menu = Memorie()
         menu.feed(testo)
         menu.close()
-        corrente, _ = leggi_memorie(testo, d, "lodi-mattutine", memoria)
+        corrente, _ = leggi_memorie(testo, d, "ufficio-delle-letture", memoria)
         if corrente != titolo:
             raise ValueError(f"{f}: selezione della memoria non confermata; "
                              f"attesa '{titolo}', ricevuta '{corrente}'. "
@@ -415,6 +523,10 @@ def raccogli_giorno(d, cache, pausa):
                              "gli identificativi CEI potrebbero essere cambiati.")
         ore = []
         for slug, nome in ORE:
+            if slug in ("lodi-mattutine", "vespri"):
+                sotto, paras = profesores["lodi" if slug == "lodi-mattutine" else "vesp"]
+                ore.append((slug, nome, sotto, paras))
+                continue
             data_fonte, id_fonte, titolo_fonte = d, memoria, titolo
             slug_fonte = slug
             if slug not in menu.ore:
@@ -427,8 +539,8 @@ def raccogli_giorno(d, cache, pausa):
                     # successiva, mentre qui si leggono la sera precedente.
                     data_fonte = d + timedelta(days=1)
                     id_fonte = 0
-                    successivo, _ = scarica(data_fonte, "lodi-mattutine", cache, pausa)
-                    titolo_fonte, _ = leggi_memorie(successivo, data_fonte, "lodi-mattutine")
+                    successivo, _ = scarica(data_fonte, "ufficio-delle-letture", cache, pausa)
+                    titolo_fonte, _ = leggi_memorie(successivo, data_fonte, "ufficio-delle-letture")
                     slug_fonte = {"vespri": "primi-vespri",
                                   "compieta": "compieta-dopo-i-primi-vespri"}[slug]
                     menu_successivo = Memorie()
@@ -446,9 +558,9 @@ def raccogli_giorno(d, cache, pausa):
                 _, paras = estrai(testo, data_fonte, nome)
             except ValueError as e:
                 raise ValueError(f"{f} ({nome}, memoria {memoria}): {e}") from e
-            sotto = corrente
+            sotto = f"CEI · {corrente}"
             if data_fonte != d:
-                sotto = f"{titolo} · {nome} della vigilia: {corrente}"
+                sotto = f"CEI · {titolo} · {nome} della vigilia: {corrente}"
             ore.append((slug, nome, sotto, paras))
         giorni.append({"data": d, "memoria": memoria, "titolo": titolo, "ore": ore})
     return giorni
@@ -500,7 +612,7 @@ def corpo_html(paras):
         elif m:
             ora = m.group(1).lower()
             out.append(f'<h2 class="sub" id="ora-{ora}">Ora {ora}</h2>')
-        elif (("lo_titolo" in getattr(p, "classi", ()) and TITOLO.match(p[0]))
+        elif (("lo_titolo" in getattr(p, "classi", ()) and (TITOLO.match(p[0]) or p[0] == "Lodi mattutine"))
               or (len(p) == 1 and (TITOLO.match(p[0]) or (p[0].isupper() and len(p[0]) > 3)))):
             titolo = "<br/>".join(esc(r) for r in p)
             out.append(f"<h3>{titolo}</h3>")
@@ -619,12 +731,15 @@ def costruisci(giorni, anno, mese, percorso):
     files["frontespizio.xhtml"] = pagina(titolo_libro, (
         '<div class="front">\n<h1>Liturgia delle Ore</h1>\n'
         f'<h2>{esc(periodo)}</h2>\n'
-        '<p>Per ogni giorno: Invitatorio, Ufficio delle letture, Lodi mattutine, '
+        '<p>Per ogni giorno: Invitatorio e Lodi mattutine, Ufficio delle letture, '
         'Ora media, Vespri, Compieta.</p>\n'
-        '<p>Quando la CEI propone più celebrazioni, ogni versione ha le sue sei ore '
-        'e una voce separata nell’indice.</p>\n'
-        '<p class="piccolo">Testi della Conferenza Episcopale Italiana, '
-        'da chiesacattolica.it</p>\n'
+        '<p>Invitatorio, Lodi e Vespri seguono il calendario di Profesores; '
+        'Ufficio delle letture, Ora media e Compieta seguono quello CEI. '
+        'I titoli delle celebrazioni possono essere diversi.</p>\n'
+        '<p>Le alternative CEI hanno una voce separata nell’indice; '
+        'in ciascuna si ripetono le ore del giorno di Profesores.</p>\n'
+        '<p class="piccolo">Fonti: profesores.pages.dev/data e '
+        'Conferenza Episcopale Italiana, chiesacattolica.it</p>\n'
         '<p><a href="nav.xhtml">Vai all\'indice ›</a></p>\n</div>'))
 
     manifest = ['<item id="front" href="frontespizio.xhtml" media-type="application/xhtml+xml"/>',
@@ -642,6 +757,7 @@ def costruisci(giorni, anno, mese, percorso):
            f'<dc:identifier id="bid">{uid}</dc:identifier><dc:title>{esc(titolo_libro)}</dc:title>'
            '<dc:language>it</dc:language>'
            '<dc:source>https://www.chiesacattolica.it/la-liturgia-delle-ore/</dc:source>'
+           '<dc:source>https://profesores.pages.dev/data/</dc:source>'
            f'<meta property="dcterms:modified">{modificato}</meta></metadata>'
            f'<manifest>{"".join(manifest)}</manifest><spine toc="ncx">{"".join(spine)}</spine></package>')
     container = ('<?xml version="1.0" encoding="utf-8"?>\n'
@@ -659,7 +775,7 @@ def costruisci(giorni, anno, mese, percorso):
 
 # --------------------------------------------------------------------------
 def main():
-    ap = argparse.ArgumentParser(description="Liturgia delle Ore CEI -> ePub mensile")
+    ap = argparse.ArgumentParser(description="Liturgia delle Ore Profesores e CEI -> ePub mensile")
     ap.add_argument("mese", help="mese nel formato AAAA-MM, es. 2026-11")
     ap.add_argument("-o", "--cartella", default=".", help="dove salvare l'ePub (default: cartella corrente)")
     ap.add_argument("--cache", default="cache_liturgia", help="cartella per le pagine scaricate")

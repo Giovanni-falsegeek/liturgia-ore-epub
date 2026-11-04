@@ -1,7 +1,8 @@
 # Presentazione semplice
 
 Questo "programma" serve per creare un file ePub della liturgia delle ore partendo
-dai testi CEI disponibili sul sito https://www.chiesacattolica.it/la-liturgia-delle-ore.
+dai testi di Profesores (https://profesores.pages.dev/data/) e della CEI
+(https://www.chiesacattolica.it/la-liturgia-delle-ore/).
 L'idea è di poter disporre di un file unico mensile per e-Reader senza dove avere
 connessione a internet. Per utilizzare il programma:
 
@@ -16,7 +17,7 @@ Programma sviluppato con Claude free e Chatgpt plus.
 # Liturgia delle Ore → ePub
 
 Un piccolo programma Python per raccogliere in un ePub mensile i testi disponibili
-sul sito della Conferenza Episcopale Italiana, per la lettura personale offline.
+sui siti Profesores e della Conferenza Episcopale Italiana, per la lettura personale offline.
 
 **Progetto indipendente e non ufficiale, non affiliato alla CEI.** È un semplice
 strumento da terminale; per i servizi e le applicazioni ufficiali fai riferimento
@@ -25,9 +26,10 @@ Il download del programma non include testi liturgici, cache o ePub.
 
 ## Scarica il programma
 
-**[Scarica Liturgia-ePub-v1.0.1.zip](https://github.com/Giovanni-falsegeek/liturgia-ore-epub/releases/download/v1.0.1/Liturgia-ePub-v1.0.1.zip)**
+**[Scarica il programma aggiornato](https://github.com/Giovanni-falsegeek/liturgia-ore-epub/archive/refs/heads/main.zip)**
 
-L’archivio contiene soltanto programma, queste istruzioni e licenza.
+L’archivio contiene il programma, le istruzioni, la licenza e i test.
+La release v1.0.1 precedente usa ancora soltanto la CEI.
 Estrai tutti i file in una cartella. Non occorre un account GitHub per scaricarli.
 
 ## Cosa serve
@@ -79,16 +81,36 @@ stesso comando: le pagine già scaricate vengono riutilizzate.
 
 ## Memorie facoltative e indice
 
-Sono incluse tutte le alternative proposte dal selettore CEI. Ciascuna celebrazione
-ha sei pagine: Invitatorio, Ufficio delle letture, Lodi mattutine, Ora media,
-Vespri e Compieta. I testi vengono scaricati separatamente; alcune ore possono
-coincidere nella fonte.
+Ogni giorno contiene cinque sezioni, in questo ordine:
 
-L’indice segue data → celebrazione → ore, con Ora terza, sesta e nona sotto Ora
-media. Nei giorni senza alternative resta data → ore. I collegamenti Precedente,
-Indice e Successiva permettono la lettura sequenziale, anche tra le alternative.
-Per le sere festive vengono selezionati i primi o secondi Vespri pertinenti dal
-menu CEI; le pagine della vigilia possono provenire dalla data successiva.
+1. **Invitatorio e Lodi mattutine** — Profesores, nella stessa pagina, con
+   l’introduzione ordinaria delle Lodi omessa dopo l’Invitatorio.
+2. **Ufficio delle letture** — CEI.
+3. **Ora media** — CEI, con Ora terza, sesta e nona come in precedenza.
+4. **Vespri** — Profesores.
+5. **Compieta** — CEI, comprese le varianti festive e della vigilia.
+
+Ogni fonte segue il proprio calendario. I titoli delle celebrazioni possono quindi
+essere diversi nello stesso giorno: il titolo Profesores compare nelle pagine
+Invitatorio e Lodi e Vespri; le altre ore riportano il titolo CEI.
+Sono incluse tutte le alternative del selettore CEI per le ore provenienti dalla
+CEI. In ciascuna versione vengono ripetuti Invitatorio, Lodi e Vespri del giorno
+di Profesores, senza adattarli alla memoria CEI.
+
+L’indice segue data → celebrazione CEI → cinque sezioni, con Ora terza, sesta e
+nona sotto Ora media. Nei giorni senza alternative resta data → sezioni.
+I collegamenti Precedente, Indice e Successiva permettono la lettura sequenziale.
+La Compieta festiva segue i collegamenti CEI e può provenire dalla data successiva;
+i Vespri seguono sempre la data e il titolo indicati da Profesores.
+
+I percorsi Profesores sono ricavati dagli indici `lit.json` e `vesp.json`:
+`lodi/AAAAMMGG-N.html`, `inv/AAAAMMGG.html` (oppure `-def.html` per i defunti)
+e `vesp/AAAAMMGG.html`. Sono riconosciute anche le varianti `sms` del sabato.
+La cache Profesores si trova in `cache_liturgia/profesores/`, separata da quella CEI.
+Se la data manca dagli indici o il testo non è disponibile, il programma si ferma:
+non sostituisce le ore mancanti con la CEI. Per aggiornare gli indici, rimuovi
+`lit.json` e `vesp.json` dalla tua cache Profesores e rilancia il programma.
+Per aggiornare un testo già scaricato, rimuovi soltanto il suo file dalla cache.
 
 ## Se qualcosa non funziona
 
@@ -105,7 +127,7 @@ programma si ferma prima di generare un nuovo ePub parziale.
 ## Licenza e contenuti
 
 Il software è distribuito con [licenza MIT](LICENSE). Questa licenza riguarda
-esclusivamente il programma, non i testi scaricati dal sito CEI.
+esclusivamente il programma, non i testi scaricati da Profesores o dalla CEI.
 I testi liturgici restano dei rispettivi titolari. Il programma li recupera sul
 computer di chi lo esegue, per la lettura personale offline.
 
@@ -115,3 +137,12 @@ Il progetto è stato sviluppato con il supporto di **Claude (Anthropic)** e
 **ChatGPT (OpenAI)** per codice, risoluzione dei problemi, test e documentazione.
 Le scelte progettuali e la revisione finale restano a cura del responsabile del
 progetto.
+
+## Test
+
+```console
+py -m unittest discover -s tests -v
+```
+
+I test usano dati inventati e funzionano senza connessione. Verificano ordine,
+fonti, calendari indipendenti, alternative CEI, Compieta della vigilia e indici ePub.

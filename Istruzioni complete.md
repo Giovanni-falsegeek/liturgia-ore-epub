@@ -1,147 +1,148 @@
-# Istruzioni complete
+# Presentazione semplice
 
-LITURGIA DELLE ORE IN ePub - COME USARE IL PROGRAMMA
-====================================================
+Questo "programma" serve per creare un file ePub della liturgia delle ore partendo
+dai testi di Profesores (https://profesores.pages.dev/data/) e della CEI
+(https://www.chiesacattolica.it/la-liturgia-delle-ore/).
+L'idea è di poter disporre di un file unico mensile per e-Reader senza dove avere
+connessione a internet. Per utilizzare il programma:
 
-COSA FA
--------
-Lo script "liturgia_epub.py" scarica dal sito della CEI (chiesacattolica.it) i testi
-della Liturgia delle Ore e li raccoglie in un file ePub da leggere offline.
+- è necessario usare un computer desktop e aver installato Python 3
+- basta scaricare il file: liturgia_epub.py e metterlo in una cartella
+- dalla cartella si lancia il terminale e si dà il comando: py liturgia_epub.py aaaa-mm
+  (sostituire "py" con "python3" su Mac e Linux; aaaa per l'anno, mm per il mese,
+  ad es. 2026-12 per dicembre 2026).
 
-Per ogni giorno scarica le sei ore: Invitatorio, Ufficio delle letture, Lodi mattutine,
-Ora media, Vespri, Compieta.
+Programma sviluppato con Claude free e Chatgpt plus.
 
-L'ePub contiene:
-  - un frontespizio con il periodo (es. "ottobre 2026" oppure "15-31 ottobre 2026");
-  - un indice gerarchico: data, celebrazione (quando ci sono alternative), sei ore;
-  - nell'Ora media, i sottotitoli "Ora terza", "Ora sesta" e "Ora nona", presenti sia
-    nel testo sia come voci dell'indice sotto "Ora media" (fino al quarto livello);
-  - in fondo a ogni pagina i link "Precedente / Indice / Successiva".
+# Liturgia delle Ore → ePub
 
-COSA SERVE
-----------
-Solo Python 3.9 o successivo. Non occorre installare nient'altro.
-  - Mac / Linux: si lancia con  python3
-  - Windows:     si lancia con  py
+Un piccolo programma Python per raccogliere in un ePub mensile i testi disponibili
+sui siti Profesores e della Conferenza Episcopale Italiana, per la lettura personale offline.
 
-Serve la connessione a internet solo mentre lo script scarica i testi. Il file ePub
-prodotto si legge poi offline.
+**Progetto indipendente e non ufficiale, non affiliato alla CEI.** È un semplice
+strumento da terminale; per i servizi e le applicazioni ufficiali fai riferimento
+al [sito CEI](https://www.chiesacattolica.it/la-liturgia-delle-ore/).
+Il download del programma non include testi liturgici, cache o ePub.
 
-COME SI USA
------------
-1. Metti "liturgia_epub.py" in una cartella.
-2. Apri il terminale (su Windows: Prompt dei comandi) in quella cartella.
-3. Lancia il comando. Il mese si scrive nel formato AAAA-MM (anno-mese).
+## Scarica il programma
 
-Mese intero (es. novembre 2026):
-    python3 liturgia_epub.py 2026-11
+**[Scarica il programma aggiornato](https://github.com/Giovanni-falsegeek/liturgia-ore-epub/archive/refs/heads/main.zip)**
 
-Solo un arco di giorni (es. dal 10 al 20 novembre):
-    python3 liturgia_epub.py 2026-11 --dal 10 --al 20
+L’archivio contiene il programma, le istruzioni, la licenza e i test.
+La release v1.0.1 precedente usa ancora soltanto la CEI.
+Estrai tutti i file in una cartella. Non occorre un account GitHub per scaricarli.
 
-Dal 15 a fine mese:
-    python3 liturgia_epub.py 2026-11 --dal 15
+## Cosa serve
 
-Fino a un certo giorno (es. dal 1 al 12):
-    python3 liturgia_epub.py 2026-11 --al 12
+- Python 3.9 o successivo, scaricabile da [python.org](https://www.python.org/downloads/).
+- Una connessione a internet durante il download dei testi.
+- Un lettore ePub per aprire il risultato, anche offline.
 
-Prova rapida di un solo giorno (utile per controllare che tutto funzioni):
-    python3 liturgia_epub.py 2026-11 --giorni 1
-  (--giorni N scarica N giorni a partire da --dal; per esempio
-   --dal 15 --giorni 3 scarica il 15, il 16 e il 17.)
+Non servono pacchetti Python aggiuntivi.
 
-Prova della feria e di San Martino de Porres (3 novembre 2026):
-    python3 liturgia_epub.py 2026-11 --dal 3 --al 3
+## Come si usa
 
-Su Windows sostituisci "python3" con "py".
+Apri il terminale nella cartella estratta. Su Windows esegui:
 
-OPZIONI
--------
-  --dal N        primo giorno da scaricare (default: 1)
-  --al N         ultimo giorno da scaricare (default: fine del mese)
-  --giorni N     scarica solo N giorni a partire da --dal
-  -o CARTELLA    cartella dove salvare l'ePub (default: la cartella corrente)
-  --cache CART.  cartella delle pagine scaricate (default: cache_liturgia)
-  --pausa SEC    secondi di attesa tra una richiesta e l'altra (default: 0.7)
+```console
+py liturgia_epub.py 2026-11
+```
 
-Esempio con cartella di destinazione:
-    python3 liturgia_epub.py 2026-11 -o ~/Documents/Liturgia
+Su macOS o Linux:
 
-FILE CHE VENGONO CREATI
------------------------
-  Liturgia-delle-Ore-2026-11.epub              mese intero
-  Liturgia-delle-Ore-2026-11_10-20.epub        arco di giorni (10-20 novembre)
-  Liturgia-delle-Ore-2026-11-riepilogo.txt     elenco dei giorni con il titolo
-                                               liturgico di ciascuno
-  cache_liturgia/                              pagine scaricate (vedi sotto)
+```console
+python3 liturgia_epub.py 2026-11
+```
 
-Il nome dell'ePub riporta il periodo, quindi un arco di giorni non sovrascrive il
-file del mese intero.
+Sostituisci `2026-11` con il mese desiderato, nel formato anno-mese.
+Per provare soltanto il 3 novembre:
 
-TEMPI E CACHE
--------------
-Un mese intero richiede qualche minuto (circa 180 pagine di base, piu' quelle delle
-celebrazioni alternative e delle ore serali festive, con una pausa tra le richieste).
+```console
+py liturgia_epub.py 2026-11 --dal 3 --al 3
+```
 
-Le pagine scaricate restano nella cartella "cache_liturgia". Se il programma si
-interrompe, basta rilanciare lo stesso comando: riparte da dove era arrivato e non
-riscarica quello che ha gia'. Le pagine ordinarie mantengono i nomi precedenti:
-    20261103_lodi-mattutine.html
-Ogni alternativa ha una cache separata, con l'identificativo CEI:
-    20261103_lodi-mattutine_memoria-1.html
-Anche le ore festive esplicite hanno nomi propri (es. secondi-vespri).
-Se vuoi forzare un nuovo download, rimuovi dalla tua copia della cache solo i file
-segnalati nell'errore e rilancia. I file non validi non vengono eliminati dallo script.
-Se compare "identificativi CEI potrebbero essere cambiati", aggiorna tutte le pagine
-di quella data (feria e alternative): il sito puo' riordinare le memorie, rendendo
-incompatibili il vecchio selettore in cache e le nuove pagine. Il controllo sui titoli
-impedisce di associare a un santo il testo di un altro.
+Attendi il messaggio `Creato:` e apri il file `.epub` indicato con il tuo lettore.
 
-MEMORIE FACOLTATIVE
--------------------
-Sono incluse automaticamente tutte le versioni proposte dal selettore CEI: la
-celebrazione ordinaria e ciascuna memoria alternativa, anche se sono piu' di due.
-Il programma legge i collegamenti "memoria" reali: non cerca la parola "facoltativa"
-nei titoli e non presume che gli identificativi siano consecutivi.
+## Opzioni
 
-Ogni versione ha sei pagine proprie e i testi scaricati dalla CEI con il parametro
-corretto. Non vengono copiate le preghiere della feria cambiando solo il titolo.
-Alcune ore possono coincidere nella fonte: il 3 novembre 2026 Ora media e Compieta
-sono uguali per le due versioni, mentre le altre quattro ore hanno testi diversi.
+| Opzione | Funzione |
+| --- | --- |
+| `--dal N` | Primo giorno (predefinito: 1) |
+| `--al N` | Ultimo giorno (predefinito: fine mese) |
+| `--giorni N` | Numero di giorni da scaricare, a partire da `--dal` |
+| `-o CARTELLA` | Cartella di destinazione (predefinita: quella corrente) |
+| `--cache CARTELLA` | Cartella della cache (predefinita: `cache_liturgia`) |
+| `--pausa SEC` | Pausa tra le richieste (predefinita: 0.7 secondi) |
 
-Esempio dell'indice:
-    Martedi' 3 novembre 2026
-      MARTEDI' - XXXI SETTIMANA DEL TEMPO ORDINARIO - III SETTIMANA DEL SALTERIO
-        Invitatorio
-        Ufficio delle letture
-        Lodi mattutine
-        Ora media
-          Ora terza
-          Ora sesta
-          Ora nona
-        Vespri
-        Compieta
-      SAN MARTINO DE PORRES, RELIGIOSO - Memoria - III SETTIMANA DEL SALTERIO
-        (le sue sei ore, con i relativi testi)
+Il programma crea l’ePub, un riepilogo delle celebrazioni e una cache delle pagine.
+Gli intervalli di giorni hanno nomi distinti dal volume del mese completo.
+Un mese intero richiede qualche minuto. Se il download si interrompe, rilancia lo
+stesso comando: le pagine già scaricate vengono riutilizzate.
 
-L'indice EPUB 3 e quello per lettori piu' vecchi (toc.ncx) hanno la stessa gerarchia.
-Nei giorni senza alternative l'indice resta data -> ore -> eventuali sotto-ore.
-La lettura sequenziale segue prima le sei ore della versione ordinaria, poi quelle
-di ciascuna alternativa, poi il giorno successivo. I link Precedente / Indice /
-Successiva funzionano anche nel passaggio tra due versioni della stessa data.
-Il riepilogo contiene una riga per ogni versione, con data, memoria=N e titolo CEI.
+## Memorie facoltative e indice
 
-Il programma controlla data, ora, titolo e selezione della memoria prima di usare
-ogni pagina. Se il sito ignora l'alternativa richiesta o indica altre versioni che
-non si riescono a identificare, si interrompe con un errore: non genera un nuovo
-ePub incompleto. Un ePub gia' esistente non viene modificato in caso di questi errori.
+Ogni giorno contiene cinque sezioni, in questo ordine:
 
-VESPRI E COMPIETA FESTIVI
------------------------
-Il menu CEI puo' usare "secondi-vespri" e "compieta-dopo-i-secondi-vespri" anziche'
-i nomi generici. Lo script usa quei collegamenti per la sera della festa. Quando
-il menu del giorno non presenta ore serali, cerca i primi Vespri e la relativa
-Compieta nella data della festa successiva. Nell'ePub restano sotto la data della
-sera in cui si pregano, con un sottotitolo che indica la celebrazione della vigilia.
-Questo puo' richiedere pagine del giorno successivo anche alla fine del periodo.
-Le vecchie pagine generiche della cache non vengono usate al posto delle ore festive.
+1. **Invitatorio e Lodi mattutine** — Profesores, nella stessa pagina, con
+   l’introduzione ordinaria delle Lodi omessa dopo l’Invitatorio.
+2. **Ufficio delle letture** — CEI.
+3. **Ora media** — CEI, con Ora terza, sesta e nona come in precedenza.
+4. **Vespri** — Profesores.
+5. **Compieta** — CEI, comprese le varianti festive e della vigilia.
+
+Ogni fonte segue il proprio calendario. I titoli delle celebrazioni possono quindi
+essere diversi nello stesso giorno: il titolo Profesores compare nelle pagine
+Invitatorio e Lodi e Vespri; le altre ore riportano il titolo CEI.
+Sono incluse tutte le alternative del selettore CEI per le ore provenienti dalla
+CEI. In ciascuna versione vengono ripetuti Invitatorio, Lodi e Vespri del giorno
+di Profesores, senza adattarli alla memoria CEI.
+
+L’indice segue data → celebrazione CEI → cinque sezioni, con Ora terza, sesta e
+nona sotto Ora media. Nei giorni senza alternative resta data → sezioni.
+I collegamenti Precedente, Indice e Successiva permettono la lettura sequenziale.
+La Compieta festiva segue i collegamenti CEI e può provenire dalla data successiva;
+i Vespri seguono sempre la data e il titolo indicati da Profesores.
+
+I percorsi Profesores sono ricavati dagli indici `lit.json` e `vesp.json`:
+`lodi/AAAAMMGG-N.html`, `inv/AAAAMMGG.html` (oppure `-def.html` per i defunti)
+e `vesp/AAAAMMGG.html`. Sono riconosciute anche le varianti `sms` del sabato.
+La cache Profesores si trova in `cache_liturgia/profesores/`, separata da quella CEI.
+Se la data manca dagli indici o il testo non è disponibile, il programma si ferma:
+non sostituisce le ore mancanti con la CEI. Per aggiornare gli indici, rimuovi
+`lit.json` e `vesp.json` dalla tua cache Profesores e rilancia il programma.
+Per aggiornare un testo già scaricato, rimuovi soltanto il suo file dalla cache.
+
+## Se qualcosa non funziona
+
+- Controlla mese e intervallo richiesti.
+- Per un download fallito, controlla la connessione e riprova.
+- Se compare un errore di data, ora o memoria, conserva il messaggio e il file
+  della cache indicato. Il sito potrebbe avere cambiato struttura.
+- Se gli identificativi CEI delle memorie sono cambiati, rimuovi dalla tua cache
+  tutte le pagine della data segnalata e rilancia il comando.
+
+Le pagine non valide vengono conservate per il controllo; in questi casi il
+programma si ferma prima di generare un nuovo ePub parziale.
+
+## Licenza e contenuti
+
+Il software è distribuito con [licenza MIT](LICENSE). Questa licenza riguarda
+esclusivamente il programma, non i testi scaricati da Profesores o dalla CEI.
+I testi liturgici restano dei rispettivi titolari. Il programma li recupera sul
+computer di chi lo esegue, per la lettura personale offline.
+
+## Ringraziamenti
+
+Il progetto è stato sviluppato con il supporto di **Claude (Anthropic)** e
+**ChatGPT (OpenAI)** per codice, risoluzione dei problemi, test e documentazione.
+Le scelte progettuali e la revisione finale restano a cura del responsabile del
+progetto.
+
+## Test
+
+```console
+py -m unittest discover -s tests -v
+```
+
+I test usano dati inventati e funzionano senza connessione. Verificano ordine,
+fonti, calendari indipendenti, alternative CEI, Compieta della vigilia e indici ePub.

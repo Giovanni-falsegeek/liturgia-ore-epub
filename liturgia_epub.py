@@ -288,12 +288,12 @@ def unisci_etichette(paras):
     return finale
 
 
-def unisci_trattini_intercessioni(paras):
-    """Unisce le risposte e ripete in chiusura la risposta iniziale delle intercessioni."""
+def unisci_trattini_intercessioni(paras, ripeti_risposta=True):
+    """Unisce le risposte; la ripetizione finale può essere disattivata per fonte."""
     out, intercessioni, risposta, i = [], False, None, 0
 
     def aggiungi_risposta_finale():
-        if risposta:
+        if risposta and ripeti_risposta:
             finale = Paragrafo(risposta, getattr(risposta, "classi", ()))
             finale.classi.add("risposta_finale")
             out.append(finale)
@@ -463,7 +463,7 @@ def estrai_profesores(testo, tipo):
         valido = "INNO" in righe and "ORAZIONE" in righe
     if not valido:
         raise ValueError(f"testo Profesores {tipo} assente o non riconosciuto")
-    return unisci_trattini_intercessioni(unisci_etichette(p.paras))
+    return unisci_trattini_intercessioni(unisci_etichette(p.paras), ripeti_risposta=tipo != "vesp")
 
 
 def inserisci_intenzioni(testo, d, cache, pausa):

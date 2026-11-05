@@ -171,6 +171,24 @@ class FontiTest(unittest.TestCase):
         with patch.object(l, 'scarica_profesores', return_value=('{} errore', Path('cal.json'))), self.assertRaisesRegex(ValueError, 'cal.json'):
             l.inserisci_intenzioni('<!--INT-->', D, Path('.'), 0)
 
+    def test_vespri_conservano_risposta_fonte_senza_ripetizione_aggiunta(self):
+        raw = ('<div class="lo_titolo">INNO</div><p>Inno di prova</p>'
+               '<div class="lo_titolo">INTERCESSIONI</div>'
+               '<div class="lo_sottotitolo">Risposta di prova.</div>'
+               '<p>Intercessione di prova</p>'
+               '<div class="lo_resp" hidden>Risposta di prova.</div><!--INT-->'
+               '<p>Padre nostro.</p><div class="lo_titolo">ORAZIONE</div><p>Orazione di prova</p>')
+        with patch.object(l, 'scarica_profesores', profesores):
+            raw = l.inserisci_intenzioni(raw, D, Path('.'), 0)
+        paras = l.estrai_profesores(raw, 'vesp')
+        testo = ' '.join(' '.join(p) for p in paras)
+        self.assertEqual(testo.count('Risposta di prova.'), 2)
+        self.assertIn('Intenzione comunitaria di prova', testo)
+        self.assertFalse(any('risposta_finale' in p.classi for p in paras))
+        senza_intenzioni = raw[:raw.index('<div class="lo_titolo">INTENZIONI')] + '<p>Padre nostro.</p><div>ORAZIONE</div>'
+        paras = l.estrai_profesores(senza_intenzioni, 'vesp')
+        self.assertEqual(' '.join(' '.join(p) for p in paras).count('Risposta di prova.'), 1)
+
 
 if __name__ == '__main__':
     unittest.main()
